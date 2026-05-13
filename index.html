@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <title>Neon Race Master - G5 Fixed</title>
+    <style>
+        :root {
+            --phase1: #ff0000; --phase2: #008cff; --phase3: #bc13fe;
+            --phase4: #39ff14; --phase5: #ff8c00; --phase6: #ccff00;
+            --phase7: #00f2ff;
+            --bg: #0a0a0b; --card: #151517; --accent: #00f2ff;
+        }
+
+        body { 
+            font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0;
+            padding: 20px 20px 20px 80px; overflow-x: hidden;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            position: fixed; left: 0; top: 0; bottom: 0; width: 60px;
+            background: #111; border-right: 1px solid #222;
+            display: flex; flex-direction: column; align-items: center;
+            padding-top: 20px; gap: 15px; z-index: 1000;
+        }
+        .side-btn {
+            background: #1a1a1a; border: 1px solid #333; color: white;
+            width: 42px; height: 42px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.3s; font-size: 1.2rem;
+        }
+        .side-btn:hover { border-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
+
+        /* --- LEADERBOARD --- */
+        .leaderboard-section {
+            background: #111; padding: 20px; border-radius: 15px; border: 1px solid #222; margin-bottom: 30px;
+        }
+        .overall-lane {
+            display: flex; align-items: center; margin: 25px 0;
+            background: #000; border-radius: 50px; padding: 0 15px; height: 40px; border: 1px solid #222;
+        }
+        .overall-track { flex: 1; height: 10px; background: #1a1a1a; border-radius: 10px; margin: 0 20px; position: relative; }
+        .overall-fill {
+            height: 100%; width: 0%; background: linear-gradient(90deg, #7000ff, var(--accent));
+            border-radius: 10px; transition: width 0.6s ease-out; position: relative;
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        .milestone-marker { position: absolute; top: -18px; transform: translateX(-50%); font-size: 12px; color: #333; filter: grayscale(1); transition: 0.4s; z-index: 1; }
+        .milestone-marker.complete { color: white; filter: grayscale(0); text-shadow: 0 0 8px var(--accent); transform: translateX(-50%) scale(1.3); }
+
+        .rainbow-victory {
+            background: linear-gradient(270deg, #ff0000, #ff8c00, #ffee00, #48ff00, #00c3ff, #6a00ff, #ff00d4) !important;
+            background-size: 400% 400% !important;
+            animation: rainbow-move 3s ease infinite;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.6) !important;
+        }
+        @keyframes rainbow-move { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+        .overall-car { position: absolute; right: -12px; top: -14px; font-size: 24px; transform: scaleX(-1); transition: 0.3s; }
+
+        /* --- PHASE GROUPS --- */
+        .group-container { background: var(--card); margin-bottom: 25px; padding: 15px; border-radius: 12px; border: 1px solid #222; }
+        .full-track { display: flex; height: 45px; background: #000; border-radius: 8px; overflow: hidden; border: 1px solid #333; }
+        .track-segment { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; border-right: 1px solid #111; text-align: center; font-weight: bold;}
+        .progress-fill { position: absolute; left: 0; top: 0; height: 100%; width: 0%; transition: width 0.3s ease-out; }
+
+        /* Neon Colors */
+        .p-0 { background: var(--phase1); box-shadow: 0 0 15px var(--phase1); }
+        .p-1 { background: var(--phase2); box-shadow: 0 0 15px var(--phase2); }
+        .p-2 { background: var(--phase3); box-shadow: 0 0 15px var(--phase3); }
+        .p-3 { background: var(--phase4); box-shadow: 0 0 15px var(--phase4); }
+        .p-4 { background: var(--phase5); box-shadow: 0 0 15px var(--phase5); }
+        .p-5 { background: var(--phase6); box-shadow: 0 0 15px var(--phase6); }
+        .p-6 { background: var(--phase7); box-shadow: 0 0 15px var(--phase7); }
+
+        /* Sliders */
+        .grid-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 20px; }
+        .slider { -webkit-appearance: none; width: 100%; height: 4px; background: #333; border-radius: 5px; outline: none; margin: 10px 0; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 0 10px var(--accent); }
+        .pct-display { font-family: monospace; font-size: 0.9rem; color: var(--accent); font-weight: bold; }
+        label { color: #888; font-size: 0.55rem; text-transform: uppercase; display: block; height: 30px; line-height: 1.2;}
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <button class="side-btn" title="Save to Browser" onclick="saveToBrowser()">💾</button>
+        <button class="side-btn" title="Export .json" onclick="exportJSON()">📤</button>
+        <button class="side-btn" title="Import .json" onclick="document.getElementById('fileInput').click()">📥</button>
+        <input type="file" id="fileInput" style="display:none" accept=".json" onchange="importJSON(event)">
+        <button class="side-btn" title="Reset All" onclick="resetAll()">🔄</button>
+    </div>
+
+    <h2 style="text-align:center; letter-spacing: 2px; text-shadow: 0 0 15px var(--accent);">🏁 PROJECT RACE MONITOR</h2>
+
+    <div class="leaderboard-section"><div id="leaderboard-content"></div></div>
+    <div id="phase-details"></div>
+
+    <script>
+        const stdPhases = ["Maklumat", "Analisis Fungsi", "Kreativiti", "Penilaian", "Pembangunan", "Pembentangan"];
+        const g5Phases = ["Dokumen Sign Off", "Ringkasan Eksekutif", "Skop Sblm/Slps", "Kos Sblm/Slps", "Pelan Tindakan", "Rumusan Makmal", "Pencapaian Makmal"];
+        const groups = ["G1", "G2", "G3", "G4", "G5"];
+        
+        // Initialize scores object with correct lengths
+        let scores = {
+            "G1": [0,0,0,0,0,0], "G2": [0,0,0,0,0,0], "G3": [0,0,0,0,0,0], "G4": [0,0,0,0,0,0], "G5": [0,0,0,0,0,0,0]
+        }; 
+
+        const leaderboard = document.getElementById('leaderboard-content');
+        const details = document.getElementById('phase-details');
+
+        function initUI() {
+            leaderboard.innerHTML = '';
+            details.innerHTML = '';
+            
+            groups.forEach(g => {
+                const phases = (g === "G5") ? g5Phases : stdPhases;
+
+                // 1. Build Leaderboard Track
+                let milestoneHTML = '';
+                phases.forEach((p, index) => {
+                    const pos = ((index + 1) / phases.length) * 100;
+                    milestoneHTML += `<div id="ms-${g}-${index}" class="milestone-marker" style="left: ${pos}%">🚩</div>`;
+                });
+
+                leaderboard.innerHTML += `
+                    <div class="overall-lane">
+                        <div style="width:30px; font-weight:bold; color:var(--accent)">${g}</div>
+                        <div class="overall-track">${milestoneHTML}<div id="overall-fill-${g}" class="overall-fill"><span class="overall-car">🏎️</span></div></div>
+                        <div id="overall-txt-${g}" style="width:45px; text-align:right; font-weight:bold; color:var(--accent); font-family:monospace;">0%</div>
+                    </div>`;
+
+                // 2. Build Phase Details
+                let phaseHTML = '', inputHTML = '';
+                phases.forEach((pName, i) => {
+                    phaseHTML += `<div class="track-segment"><div id="fill-${g}-${i}" class="progress-fill p-${i}"></div><span style="z-index:2; text-shadow: 0 0 5px black;">${pName}</span></div>`;
+                    inputHTML += `<div class="input-box"><label>${pName}</label><input type="range" class="slider" id="sld-${g}-${i}" value="0" min="0" max="100" oninput="updateData('${g}', ${i}, this.value)"><div class="pct-display" id="val-${g}-${i}">0%</div></div>`;
+                });
+
+                details.innerHTML += `<div class="group-container"><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:var(--accent); font-weight:bold;">TEAM ${g}</span><span id="header-avg-${g}" style="color:#555; font-size:0.8rem;">0% COMPLETE</span></div><div class="full-track">${phaseHTML}</div><div class="grid-inputs">${inputHTML}</div></div>`;
+            });
+        }
+
+        function updateData(group, phaseIdx, val) {
+            const percent = parseInt(val);
+            if (!scores[group]) return; 
+            scores[group][phaseIdx] = percent;
+
+            // Update individual bars
+            const fill = document.getElementById(`fill-${group}-${phaseIdx}`);
+            const valTxt = document.getElementById(`val-${group}-${phaseIdx}`);
+            if(fill) fill.style.width = percent + "%";
+            if(valTxt) valTxt.innerText = percent + "%";
+
+            // Update milestones
+            const flag = document.getElementById(`ms-${group}-${phaseIdx}`);
+            if (flag) {
+                if (percent >= 100) { flag.classList.add('complete'); flag.innerText = '🏁'; } 
+                else { flag.classList.remove('complete'); flag.innerText = '🚩'; }
+            }
+
+            // Calculate average
+            const currentPhases = (group === "G5") ? g5Phases : stdPhases;
+            const avg = Math.round(scores[group].reduce((a, b) => a + b, 0) / currentPhases.length);
+
+            // Update Leaderboard
+            const overFill = document.getElementById(`overall-fill-${group}`);
+            const car = overFill.querySelector('.overall-car');
+            const overTxt = document.getElementById(`overall-txt-${group}`);
+            const headAvg = document.getElementById(`header-avg-${group}`);
+
+            if(overFill) overFill.style.width = avg + "%";
+            if(overTxt) overTxt.innerText = avg + "%";
+            if(headAvg) headAvg.innerText = avg + "% COMPLETE";
+            
+            if (avg >= 100) { overFill.classList.add('rainbow-victory'); car.innerHTML = "🏆"; } 
+            else { overFill.classList.remove('rainbow-victory'); car.innerHTML = "🏎️"; }
+        }
+
+        function exportJSON() {
+            const blob = new Blob([JSON.stringify(scores, null, 4)], { type: "application/json" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "race_progress_full.json";
+            a.click();
+        }
+
+        function importJSON(event) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = JSON.parse(e.target.result);
+                applyData(data);
+            };
+            reader.readAsText(event.target.files[0]);
+        }
+
+        function applyData(data) {
+            if (!data) return;
+            // Iterate through each group in the saved data
+            Object.keys(data).forEach(g => {
+                if (scores[g]) {
+                    data[g].forEach((val, i) => {
+                        const s = document.getElementById(`sld-${g}-${i}`);
+                        if (s) {
+                            s.value = val;
+                            updateData(g, i, val);
+                        }
+                    });
+                }
+            });
+        }
+
+        function saveToBrowser() { localStorage.setItem('NeonRace_G5_Final', JSON.stringify(scores)); alert("Saved to browser!"); }
+        function resetAll() { if (confirm("Clear all?")) { localStorage.removeItem('NeonRace_G5_Final'); location.reload(); } }
+
+        window.onload = () => {
+            initUI();
+            const saved = localStorage.getItem('NeonRace_G5_Final');
+            if (saved) applyData(JSON.parse(saved));
+        };
+    </script>
+</body>
+</html>
